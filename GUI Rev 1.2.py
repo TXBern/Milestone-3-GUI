@@ -72,10 +72,7 @@ st.markdown(
 # Dataset path
 # -----------------------------------
 
-DATA_PATH = (
-    r"C:\Users\bernh\Documents\GCU\DSC-580"
-    r"\Milestone 3\long_df_head.csv"
-)
+DATA_PATH = "long_df_head.csv"
 
 
 # -----------------------------------
