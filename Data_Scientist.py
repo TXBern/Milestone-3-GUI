@@ -2,6 +2,7 @@
 # Import necessary libraries
 # -----------------------------------
 
+from pathlib import Path
 import joblib
 import pandas as pd
 import numpy as np
@@ -16,11 +17,14 @@ from sklearn.metrics import (
 # Loading the models to be compared
 # -----------------------------------
 
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_DIR = BASE_DIR / "saved_models"
+
 models = {
-    "Random Forest": joblib.load("C:\\Users\\bernh\\Documents\\GCU\\DSC-580\\Milestone 3\\saved_models\\RandomForest.joblib"),
-    "HistGradientBoosting": joblib.load("C:\\Users\\bernh\\Documents\\GCU\\DSC-580\\Milestone 3\\saved_models\\HistGradientBoosting.joblib"),
-    "KNN": joblib.load("C:\\Users\\bernh\\Documents\\GCU\\DSC-580\\Milestone 3\\saved_models\\KNN.joblib"),
-    "SVR_RBF": joblib.load("C:\\Users\\bernh\\Documents\\GCU\\DSC-580\\Milestone 3\\saved_models\\SVR_RBF.joblib")
+    # "Random Forest": joblib.load(MODEL_DIR / "RandomForest.joblib"),
+    "HistGradientBoosting": joblib.load(MODEL_DIR / "HistGradientBoosting.joblib"),
+    "KNN": joblib.load(MODEL_DIR / "KNN.joblib"),
+    "SVR_RBF": joblib.load(MODEL_DIR / "SVR_RBF.joblib")
 }
 
 # -----------------------------------
