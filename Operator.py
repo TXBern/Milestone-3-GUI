@@ -4,6 +4,7 @@
 
 #import pandas as pd
 import joblib
+from pathlib import Path
 
 # -----------------------------------
 # Page configuration
@@ -15,7 +16,10 @@ import joblib
 # Loading the model with highest accuracy
 # -----------------------------------
 
-model = joblib.load("C:\\Users\\bernh\\Documents\\GCU\\DSC-580\\Milestone 3\\saved_models\\RandomForest.joblib")
+BASE_DIR = Path(__file__).resolve().parent
+MODEL_DIR = BASE_DIR / "saved_models"
+
+model = joblib.load(MODEL_DIR / "HistGradientBoosting.joblib")
 
 # -----------------------------------
 # Select a Random Sample and Make a Prediction
