@@ -72,7 +72,11 @@ st.markdown(
 # Dataset path
 # -----------------------------------
 
-DATA_PATH = "long_df_head.csv"
+#DATA_PATH = "long_df_head.csv"
+DATA_PATH = (
+    r"C:\Users\bernh\Documents\GCU\DSC-580"
+    r"\Milestone 3\long_df_head.csv"
+)
 
 
 # -----------------------------------
@@ -108,6 +112,12 @@ if "operator_model_complete" not in st.session_state:
 if "operator_interpret_complete" not in st.session_state:
     st.session_state.operator_interpret_complete = False
 
+if "operator_data_source" not in st.session_state:
+    st.session_state.operator_data_source = "Read File"
+
+if "operator_scrub_method" not in st.session_state:
+    st.session_state.operator_scrub_method = "Default"
+
 
 # -------------------------
 # Data Scientist session state
@@ -131,6 +141,12 @@ if "ds_model_complete" not in st.session_state:
 if "ds_interpret_complete" not in st.session_state:
     st.session_state.ds_interpret_complete = False
 
+if "ds_data_source" not in st.session_state:
+    st.session_state.ds_data_source = "Read File"
+
+if "ds_scrub_method" not in st.session_state:
+    st.session_state.ds_scrub_method = "Default"
+
 
 # =========================================================
 # OPERATOR OSEMN FUNCTIONS
@@ -148,7 +164,11 @@ def operator_obtain_data():
     SCADA, EMS, or another operating-data source.
     """
 
-    operator_df = pd.read_csv(DATA_PATH)
+    if st.session_state.operator_data_source == "Read File":
+        operator_df = pd.read_csv(DATA_PATH)
+    else:  # Read URL
+        url = "https://www.dropbox.com/scl/fi/0msrg6c9i38tg80flf3pg/long_df_head.csv?rlkey=vbebskj89qosadwaxixvdzwiy&st=124rxiep&dl=1"
+        operator_df = pd.read_csv(url)
 
     st.session_state.operator_df = operator_df
 
@@ -171,15 +191,17 @@ def operator_scrub_data():
         st.session_state.operator_df.copy()
     )
 
-
     operator_df = operator_df.drop_duplicates()
     
-    operator_df = operator_df.dropna(
-        subset=[
-            "P_remaining_sum",
-            "P_diff_target0_est_pred"
-        ]
-    )
+    # Apply scrubbing method based on selection
+    if st.session_state.operator_scrub_method in ["Default", "Remove if Sample Missing"]:
+        operator_df = operator_df.dropna(
+            subset=[
+                "P_remaining_sum",
+                "P_diff_target0_est_pred"
+            ]
+        )
+    # "No Scrubbing" does nothing
 
     st.session_state.operator_clean_df = (
         operator_df
@@ -338,7 +360,11 @@ def ds_obtain_data():
     validation, and benchmarking.
     """
 
-    ds_df = pd.read_csv(DATA_PATH)
+    if st.session_state.ds_data_source == "Read File":
+        ds_df = pd.read_csv(DATA_PATH)
+    else:  # Read URL
+        url = "https://www.dropbox.com/scl/fi/0msrg6c9i38tg80flf3pg/long_df_head.csv?rlkey=vbebskj89qosadwaxixvdzwiy&st=124rxiep&dl=1"
+        ds_df = pd.read_csv(url)
 
     st.session_state.ds_df = ds_df
 
@@ -364,17 +390,34 @@ def ds_scrub_data():
 
     ds_df = ds_df.drop_duplicates()
     
-    ds_df = ds_df.dropna(
-        subset=[
-            "P_remaining_sum",
-            "P_diff_target0_est_pred"
-        ]
-    )
+    # Apply scrubbing method based on selection
+    scrub_method = st.session_state.ds_scrub_method
+    
+    if scrub_method in ["Default", "Remove Missing Samples"]:
+        # Remove missing values
+        ds_df = ds_df.dropna(
+            subset=[
+                "P_remaining_sum",
+                "P_diff_target0_est_pred"
+            ]
+        )
+    
+    if scrub_method in ["Default", "Remove Outliers"]:
+        # Remove outliers using IQR method for numeric columns
+        # numeric_cols = ds_df.select_dtypes(include=["number"]).columns
+        # for col in numeric_cols:
+        #     Q1 = ds_df[col].quantile(0.25)
+        #     Q3 = ds_df[col].quantile(0.75)
+        #     IQR = Q3 - Q1
+        #     lower_bound = Q1 - 1.5 * IQR
+        #     upper_bound = Q3 + 1.5 * IQR
+        #     ds_df = ds_df[(ds_df[col] >= lower_bound) & (ds_df[col] <= upper_bound)]
+    
+    # "No Scrubbing" does nothing
 
-
-    st.session_state.ds_clean_df = (
-        ds_df
-    )
+        st.session_state.ds_clean_df = (
+            ds_df
+        )
 
     st.session_state.ds_scrub_complete = True
 
@@ -742,6 +785,13 @@ def display_operator_pipeline_controls():
             unsafe_allow_html=True
         )
 
+        st.session_state.operator_data_source = st.selectbox(
+            "Data Source:",
+            ["Read File", "Read URL"],
+            index=0 if st.session_state.operator_data_source == "Read File" else 1,
+            key="operator_data_source_select"
+        )
+
         if st.button(
             "📥 Obtain Operating Condition",
             key="operator_obtain",
@@ -772,6 +822,13 @@ def display_operator_pipeline_controls():
                 """
             ),
             unsafe_allow_html=True
+        )
+
+        st.session_state.operator_scrub_method = st.selectbox(
+            "Scrubbing Method:",
+            ["Default", "Remove if Sample Missing", "No Scrubbing"],
+            index=["Default", "Remove if Sample Missing", "No Scrubbing"].index(st.session_state.operator_scrub_method),
+            key="operator_scrub_method_select"
         )
 
         if st.button(
@@ -1026,6 +1083,13 @@ def display_ds_pipeline_controls():
             unsafe_allow_html=True
         )
 
+        st.session_state.ds_data_source = st.selectbox(
+            "Data Source:",
+            ["Read File", "Read URL"],
+            index=0 if st.session_state.ds_data_source == "Read File" else 1,
+            key="ds_data_source_select"
+        )
+
         if st.button(
             "📥 Obtain Training Data",
             key="ds_obtain",
@@ -1056,6 +1120,13 @@ def display_ds_pipeline_controls():
                 """
             ),
             unsafe_allow_html=True
+        )
+
+        st.session_state.ds_scrub_method = st.selectbox(
+            "Scrubbing Method:",
+            ["Default", "Remove Missing Samples", "Remove Outliers", "No Scrubbing"],
+            index=["Default", "Remove Missing Samples", "Remove Outliers", "No Scrubbing"].index(st.session_state.ds_scrub_method),
+            key="ds_scrub_method_select"
         )
 
         if st.button(
