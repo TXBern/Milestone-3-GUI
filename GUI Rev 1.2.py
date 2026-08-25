@@ -2,10 +2,15 @@
 # Import necessary libraries
 # -----------------------------------
 
+import math
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.patches import Wedge
+from io import BytesIO
 
 from textwrap import dedent
 
@@ -72,11 +77,11 @@ st.markdown(
 # Dataset path
 # -----------------------------------
 
-#DATA_PATH = "long_df_head.csv"
-DATA_PATH = (
-    r"C:\Users\bernh\Documents\GCU\DSC-580"
-    r"\Milestone 3\long_df_head.csv"
-)
+DATA_PATH = "long_df_head.csv"
+# DATA_PATH = (
+#     r"C:\Users\bernh\Documents\GCU\DSC-580"
+#     r"\Milestone 3\long_df_head.csv"
+# )
 
 
 # -----------------------------------
@@ -939,6 +944,165 @@ def display_operator_pipeline_controls():
                 "Operating margin interpreted."
             )
 
+        pipeline_arrow()
+
+
+        # PDF EXPORT
+
+        if st.session_state.operator_model_complete:
+
+            prediction = st.session_state.operator_prediction
+            current_flow = st.session_state.operator_current_flow
+            operating_margin = st.session_state.operator_operating_margin
+            percent_of_limit = st.session_state.operator_percent_of_limit
+            status = st.session_state.operator_status
+
+            if percent_of_limit > 95:
+                gauge_color = "#d9534f"
+            elif percent_of_limit > 85:
+                gauge_color = "#f0ad4e"
+            else:
+                gauge_color = "#5cb85c"
+
+            with st.expander(
+                "Export Prediction Results as PDF"
+            ):
+
+                pdf_buffer = BytesIO()
+
+                with PdfPages(pdf_buffer) as pdf:
+
+                    # Figure 1 - Summary + gauge chart
+                    fig = plt.figure(figsize=(8.5, 11))
+                    fig.patch.set_facecolor("white")
+                    fig.suptitle(
+                        "Operator View Report",
+                        fontsize=22,
+                        fontweight="bold",
+                        y=0.97,
+                    )
+
+                    summary_rows = [
+                        ("Data Source", st.session_state.get("operator_data_source", "Read File")),
+                        ("Scrub Method", st.session_state.get("operator_scrub_method", "Default")),
+                        ("Current Flow", f"{current_flow:,.0f} MW"),
+                        ("Predicted Stability Limit", f"{prediction:,.0f} MW"),
+                        ("Remaining Margin", f"{operating_margin:,.0f} MW"),
+                        ("Percent of Limit", f"{percent_of_limit:.1f}%"),
+                        ("Operating Status", status),
+                    ]
+
+                    summary_x = 0.08
+                    summary_y = 0.78
+                    for label, value in summary_rows:
+                        fig.text(
+                            summary_x,
+                            summary_y,
+                            f"{label}: {value}",
+                            fontsize=11,
+                            va="center",
+                        )
+                        summary_y -= 0.05
+
+                    gauge_ax = fig.add_axes([0.12, 0.22, 0.76, 0.42])
+                    gauge_ax.set_aspect("equal")
+                    gauge_ax.axis("off")
+
+                    gauge_bg = Wedge(
+                        center=(0, 0),
+                        r=1.15,
+                        theta1=0,
+                        theta2=180,
+                        width=0.32,
+                        facecolor="#e6e6e6",
+                        edgecolor="none",
+                    )
+                    gauge_ax.add_patch(gauge_bg)
+
+                    level = min(max(percent_of_limit, 0), 100)
+                    sweep = 180 * level / 100
+                    gauge_fill = Wedge(
+                        center=(0, 0),
+                        r=1.15,
+                        theta1=180,
+                        theta2=180 - sweep,
+                        width=0.32,
+                        facecolor=gauge_color,
+                        edgecolor="none",
+                    )
+                    gauge_ax.add_patch(gauge_fill)
+
+                    for tick in [0, 25, 50, 75, 100]:
+                        angle = 180 - tick * 1.8
+                        rad = math.radians(angle)
+                        inner = 0.82
+                        outer = 1.08
+                        x1, y1 = inner * math.cos(rad), inner * math.sin(rad)
+                        x2, y2 = outer * math.cos(rad), outer * math.sin(rad)
+                        gauge_ax.plot([x1, x2], [y1, y2], color="black", lw=1)
+                        label_r = 1.25
+                        lx, ly = label_r * math.cos(rad), label_r * math.sin(rad)
+                        gauge_ax.text(lx, ly, f"{tick}%", ha="center", va="center", fontsize=9)
+
+                    needle_angle = 180 - (level * 1.8)
+                    needle_rad = math.radians(needle_angle)
+                    nx, ny = 0.9 * math.cos(needle_rad), 0.9 * math.sin(needle_rad)
+                    gauge_ax.plot([0, nx], [0, ny], color="black", lw=2.5)
+                    gauge_ax.plot(0, 0, "o", color="black", markersize=6)
+
+                    gauge_ax.text(0, 1.45, f"{level:.1f}% of limit", ha="center", va="center", fontsize=12, fontweight="bold")
+                    gauge_ax.set_xlim(-1.4, 1.4)
+                    gauge_ax.set_ylim(-0.25, 1.7)
+
+                    pdf.savefig(fig)
+                    plt.close(fig)
+
+                    # Figure 2 - Metrics table
+                    fig, ax = plt.subplots(figsize=(8, 5))
+                    ax.axis("off")
+
+                    table_data = [
+                        ["Metric", "Value"],
+                        ["Current Flow", f"{current_flow:,.0f} MW"],
+                        ["Predicted Stability Limit", f"{prediction:,.0f} MW"],
+                        ["Remaining Margin", f"{operating_margin:,.0f} MW"],
+                        ["Percent of Limit", f"{percent_of_limit:.1f}%"],
+                        ["Operating Status", status],
+                    ]
+
+                    table = ax.table(
+                        cellText=table_data,
+                        colLabels=None,
+                        cellLoc="left",
+                        loc="center",
+                        bbox=[0, 0, 1, 1],
+                    )
+                    table.auto_set_font_size(False)
+                    table.set_fontsize(11)
+                    table.scale(1.2, 1.6)
+                    ax.set_title("Prediction Metrics", fontsize=14, pad=18)
+
+                    pdf.savefig(fig)
+                    plt.close(fig)
+
+                pdf_buffer.seek(0)
+
+                st.download_button(
+                    "📥 Download PDF Report",
+                    pdf_buffer,
+                    "prediction_report.pdf",
+                    "application/pdf",
+                    use_container_width=True,
+                )
+
+        else:
+
+            st.info(
+                "Run the Operator Model stage or the "
+                "entire Operator pipeline to generate "
+                "a transient stability prediction."
+            )
+
 
 # =========================================================
 # DATA SCIENTIST PIPELINE CONTROLS
@@ -1721,3 +1885,105 @@ with data_scientist_tab:
             "the entire Data Scientist pipeline to "
             "generate benchmark results."
         )
+
+def build_operator_pdf_report():
+    """
+    Build a clear PDF report for the current Operator view.
+    The report includes the selected options and the result gauge.
+    """
+
+    if not st.session_state.get("operator_model_complete", False):
+        return b""
+
+    data_source = st.session_state.get("operator_data_source", "Read File")
+    scrub_method = st.session_state.get("operator_scrub_method", "Default")
+    prediction = float(st.session_state.get("operator_prediction", 0.0))
+    current_flow = float(st.session_state.get("operator_current_flow", 0.0))
+    operating_margin = float(st.session_state.get("operator_operating_margin", 0.0))
+    percent_of_limit = float(st.session_state.get("operator_percent_of_limit", 0.0))
+    status = st.session_state.get("operator_status", "Unknown")
+
+    if percent_of_limit > 95:
+        gauge_color = "#d9534f"
+    elif percent_of_limit > 85:
+        gauge_color = "#f0ad4e"
+    else:
+        gauge_color = "#5cb85c"
+
+    buffer = BytesIO()
+
+    with PdfPages(buffer) as pdf:
+        fig = plt.figure(figsize=(8.5, 11))
+        fig.patch.set_facecolor("white")
+        fig.suptitle("Operator View Report", fontsize=22, fontweight="bold", y=0.97)
+
+        summary_rows = [
+            ("Data Source", data_source),
+            ("Scrub Method", scrub_method),
+            ("Current Flow", f"{current_flow:,.0f} MW"),
+            ("Predicted Stability Limit", f"{prediction:,.0f} MW"),
+            ("Remaining Margin", f"{operating_margin:,.0f} MW"),
+            ("Percent of Limit", f"{percent_of_limit:.1f}%"),
+            ("Operating Status", status),
+        ]
+
+        summary_x = 0.08
+        summary_y = 0.82
+        for label, value in summary_rows:
+            fig.text(summary_x, summary_y, f"{label}: {value}", fontsize=11, va="center")
+            summary_y -= 0.05
+
+        gauge_ax = fig.add_axes([0.12, 0.22, 0.76, 0.42])
+        gauge_ax.set_aspect("equal")
+        gauge_ax.axis("off")
+
+        bg = Wedge((0, 0), 1.15, 0, 180, width=0.32, facecolor="#e6e6e6", edgecolor="none")
+        gauge_ax.add_patch(bg)
+
+        level = min(max(percent_of_limit, 0), 100)
+        sweep = 180 * level / 100
+        fill = Wedge((0, 0), 1.15, 180, 180 - sweep, width=0.32, facecolor=gauge_color, edgecolor="none")
+        gauge_ax.add_patch(fill)
+
+        for tick in [0, 25, 50, 75, 100]:
+            angle_deg = 180 - tick * 1.8
+            angle_rad = math.radians(angle_deg)
+            x1, y1 = 0.82 * math.cos(angle_rad), 0.82 * math.sin(angle_rad)
+            x2, y2 = 1.08 * math.cos(angle_rad), 1.08 * math.sin(angle_rad)
+            gauge_ax.plot([x1, x2], [y1, y2], color="black", lw=1)
+            lx, ly = 1.25 * math.cos(angle_rad), 1.25 * math.sin(angle_rad)
+            gauge_ax.text(lx, ly, f"{tick}%", ha="center", va="center", fontsize=9)
+
+        needle_angle = math.radians(180 - (level * 1.8))
+        nx = 0.9 * math.cos(needle_angle)
+        ny = 0.9 * math.sin(needle_angle)
+        gauge_ax.plot([0, nx], [0, ny], color="black", lw=2.5)
+        gauge_ax.plot(0, 0, "o", color="black", markersize=6)
+        gauge_ax.text(0, 1.45, f"{level:.1f}% of limit", ha="center", va="center", fontsize=12, fontweight="bold")
+
+        gauge_ax.set_xlim(-1.4, 1.4)
+        gauge_ax.set_ylim(-0.25, 1.7)
+
+        pdf.savefig(fig)
+        plt.close(fig)
+
+        fig2, ax2 = plt.subplots(figsize=(8, 5))
+        ax2.axis("off")
+        table_data = [
+            ["Metric", "Value"],
+            ["Current Flow", f"{current_flow:,.0f} MW"],
+            ["Predicted Stability Limit", f"{prediction:,.0f} MW"],
+            ["Remaining Margin", f"{operating_margin:,.0f} MW"],
+            ["Percent of Limit", f"{percent_of_limit:.1f}%"],
+            ["Operating Status", status],
+        ]
+        table = ax2.table(cellText=table_data, colLabels=None, cellLoc="left", loc="center", bbox=[0, 0, 1, 1])
+        table.auto_set_font_size(False)
+        table.set_fontsize(11)
+        table.scale(1.2, 1.6)
+        ax2.set_title("Prediction Metrics", fontsize=14, pad=18)
+        pdf.savefig(fig2)
+        plt.close(fig2)
+
+    buffer.seek(0)
+    return buffer.getvalue()
