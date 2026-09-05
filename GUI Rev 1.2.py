@@ -189,7 +189,7 @@ st.markdown(
     DSC-580 &nbsp;&nbsp;&nbsp;&nbsp;
     Milestone 3 &nbsp;&nbsp;&nbsp;&nbsp;
     Douglas Bernhoft &nbsp;&nbsp;&nbsp;&nbsp;
-    Revision 8/9/2026
+    Revision 9/5/2026
     """,
     unsafe_allow_html=True
 )
