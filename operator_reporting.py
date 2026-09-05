@@ -31,10 +31,11 @@ def operator_obtain_data():
 
     from Operator import get_random_prediction
     
-    DATA_PATH = (
-        r"C:\Users\bernh\Documents\GCU\DSC-580"
-        r"\Milestone 3\long_df_head.csv"
-    )
+    DATA_PATH = "long_df_head.csv"
+    # DATA_PATH = (
+    #     r"C:\Users\bernh\Documents\GCU\DSC-580"
+    #     r"\Milestone 3\long_df_head.csv"
+    # )
 
     if st.session_state.operator_data_source == "Read File":
         operator_df = pd.read_csv(DATA_PATH)
